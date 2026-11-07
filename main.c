@@ -21,6 +21,11 @@ void debug_start()
     signal(SIGPIPE, SIG_IGN);
 }
 
+typedef struct pos
+{
+    int x, y;
+} pos;
+
 typedef struct erow
 {
     int size;
@@ -30,6 +35,7 @@ typedef struct erow
 struct editor_config
 {
     int cx, cy;
+    int vx, vy;
     int rowoff;
     int screenrows, screencols;
     int numrows;
@@ -117,6 +123,31 @@ int get_max_cx()
     int size = E.row[E.cy].size;
 
     return size > 0 ? size : 0;
+}
+
+int anchor_before_cursor(void)
+{
+    return E.vy < E.cy || (E.vy == E.cy && E.vx < E.cx);
+}
+
+pos get_editor_selection_start(void)
+{
+    if (anchor_before_cursor())
+    {
+        return (pos){ E.vx, E.vy };
+    }
+
+    return (pos){ E.cx, E.cy };
+}
+
+pos get_editor_selection_end(void)
+{
+    if (anchor_before_cursor())
+    {
+        return (pos){ E.cx, E.cy };
+    }
+
+    return (pos){ E.vx, E.vy };
 }
 
 void editor_move_cursor(const char key)
@@ -238,6 +269,11 @@ void handle_key_press()
             case 'i':
                 E.mode = 1;
                 break;
+            case 'v':
+                E.mode = 2;
+                E.vx = E.cx;
+                E.vy = E.cy;
+                break;
             case 'h':
             case 'j':
             case 'k':
@@ -251,6 +287,13 @@ void handle_key_press()
 
                 break;
             case 'w':
+                if(E.cx == E.row[E.cy].size && E.cy < E.numrows - 1)
+                {
+                    E.cx = 0;
+                    E.cy += 1;
+                    break;
+                }
+
                 for(int i = E.cx; i < E.row[E.cy].size; i++)
                 {
                     if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
@@ -270,8 +313,16 @@ void handle_key_press()
                         E.cx = E.row[E.cy].size;
                     }
                 }
+
                 break;
             case 'b':
+                if(E.cx == 0 && E.cy > 0)
+                {
+                    E.cy -= 1;
+                    E.cx = E.row[E.cy].size;
+                    break;
+                }
+
                 for(int i = E.cx; i > 0; i--)
                 {
                     if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
@@ -331,6 +382,26 @@ void handle_key_press()
         }
 
         return;
+    }
+
+    if(E.mode == 2)
+    {
+        switch(c)
+        {
+            // <esc>
+            case 27:
+                E.mode = 0;
+                break;
+            case 'h':
+            case 'j':
+            case 'k':
+            case 'l':
+                editor_move_cursor(c);
+
+                fprintf(stderr, "Insert %c\n", c);
+
+                // fprintf(stderr, "%d,%d : %d,%d", E.vx, E.vy, E.cx, E.cy);
+        }
     }
 }
 
@@ -430,11 +501,18 @@ void editor_scroll() {
 
 void editor_draw_rows(struct abuf *ab)
 {
+    // if(E.mode == 2)
+    // {
+    //     pos begin = get_editor_selection_start();
+    //     pos end = get_editor_selection_end();
+    // }
+
     for (int y = 0; y < E.screenrows; y++)
     {
         int filerow = y + E.rowoff;
         if(filerow >= E.numrows)
         {
+            fprintf(stderr, "ej ejej %d\n", E.numrows);
             if(E.numrows == 0 && y == E.screenrows / 3)
             {
                char welcome[80];
@@ -466,12 +544,36 @@ void editor_draw_rows(struct abuf *ab)
         }
         else
         {
-           int len = E.row[filerow].size;
-           if(len > E.screencols)
-           {
-               len = E.screencols;
-           }
-           ab_append(ab, E.row[filerow].chars, len);
+            pos s = get_editor_selection_start();
+            pos e = get_editor_selection_end();
+
+            erow *row = &E.row[filerow];
+            int len = row->size;
+
+            if(len > E.screencols)
+            {
+                len = E.screencols;
+            }
+
+            if(E.mode != 2 || filerow < s.y || filerow > e.y)
+            {
+                ab_append(ab, row->chars, len);
+            }
+            else
+            {
+
+                int from = (filerow == s.y) ? s.x : 0;
+                int to   = (filerow == e.y) ? e.x + 1 : len;
+
+                if(from > len) from = len;
+                if(to > len)   to = len;
+
+                ab_append(ab, row->chars, from);
+                ab_append(ab, "\x1b[7m", 4);
+                ab_append(ab, row->chars + from, to - from);
+                ab_append(ab, "\x1b[27m", 5);
+                ab_append(ab, row->chars + to, len - to);
+            }
         }
 
         ab_append(ab, "\x1b[K", 3);
@@ -503,6 +605,11 @@ void editor_draw_command_line(struct abuf *ab)
     if(E.mode == 1)
     {
         ab_append(ab, "-- INSERT --", 12);
+    }
+
+    if(E.mode == 2)
+    {
+        ab_append(ab, "-- VISUAL --", 12);
     }
 
     ab_append(ab, "\x1b[K", 3);
@@ -580,10 +687,11 @@ int main(int argc, char *argv[])
     {
         editor_open(file_path);
     }
-    else
-    {
-        editor_append_row("", 0);
-    }
+    // TODO: fix in no file mode
+    // else
+    // {
+    //     editor_append_row("", 0);
+    // }
 
     while(1)
     {
