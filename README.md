@@ -25,23 +25,23 @@ Order doesn't matter.
 | NORMAL  | normal mode; only moving around the document is allowed |
 | VISUAL  | visual mode; allows selecting the text                  |
 | INSERT  | insert mode a.k.a typing mode; allows inserting chars   |
-| CDM     | allows typing in editor commands                        |
+| CMD     | allows typing in editor commands                        |
 
 ## Keymap
-| key     | layers         | description                                                |   
-| ------- | -------        | -------                                                    | 
-| \<esc>  | VISUAL         | move left                                                  |
-| h       | NORMAL, VISUAL | move left                                                  |
-| j       | NORMAL, VISUAL | move down                                                  |
-| k       | NORMAL, VISUAL | move up                                                    |
-| l       | NORMAL, VISUAL | move right                                                 |
-| w       | NORMAL, VISUAL | move to the beginning of a next word                       |
-| e       | NORMAL, VISUAL | move to the end of a next word                             |
-| b       | NORMAL, VISUAL | move to the end of a previous word                         |
-| o       | NORMAL         | inserts new line below selected one and enters INSERT mode |
-| i       | NORMAL         | enters INSERT mode                                         |
-| v       | NORMAL         | enters VISUAL mode                                         |
-| :       | NORMAL         | enters CMD mode                                            |
+| key     | layers                   | description                                                |   
+| ------- | -------                  | -------                                                    | 
+| \<esc>  | VISUAL, INSERT, CMD      | returns to NORMAL mode                                     |
+| h       | NORMAL, VISUAL           | move left                                                  |
+| j       | NORMAL, VISUAL           | move down                                                  |
+| k       | NORMAL, VISUAL           | move up                                                    |
+| l       | NORMAL, VISUAL           | move right                                                 |
+| w       | NORMAL, VISUAL           | move to the beginning of a next word                       |
+| e       | NORMAL, VISUAL           | move to the end of a next word                             |
+| b       | NORMAL, VISUAL           | move to the end of a previous word                         |
+| o       | NORMAL                   | inserts new line below selected one and enters INSERT mode |
+| i       | NORMAL                   | enters INSERT mode                                         |
+| v       | NORMAL                   | enters VISUAL mode                                         |
+| :       | NORMAL                   | enters CMD mode                                            |
 
 ## Editor commands
 | cmd     | description                     |   
