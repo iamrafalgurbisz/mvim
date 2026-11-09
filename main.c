@@ -1,4 +1,5 @@
 #include <ctype.h>
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -41,6 +42,7 @@ struct editor_config
     int numrows;
     erow *row;
     int mode;
+    bool is_new_file;
     char *cmd;
     char *cmd_info;
     struct termios orig_termios;
@@ -102,9 +104,19 @@ char read_key()
     return c;
 }
 
+void mark_file_old()
+{
+    if(E.is_new_file)
+    {
+        E.is_new_file = false;
+    }
+}
+
 // insert char in cursor place
 void editor_insert_char(const char c)
 {
+    mark_file_old();
+
     erow *row = &E.row[E.cy];
 
     fprintf(stderr, "Insert %c\n", c);
@@ -117,12 +129,29 @@ void editor_insert_char(const char c)
     E.cx++;
 }
 
+// add line below
+void editor_add_line_below()
+{
+    mark_file_old();
+
+    int at = E.cy + 1;
+
+    E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
+    memmove(&E.row[at + 1], &E.row[at], sizeof(erow) * (E.numrows - at));
+
+    E.row[at].size = 0;
+    E.row[at].chars = malloc(1);
+    E.row[at].chars[0] = '\0';
+    E.numrows += 1;
+    E.cy += 1;
+    E.cx = 0;
+}
+
 int get_max_cx()
 {
-    // TODO: differ between insert/normal mode
     int size = E.row[E.cy].size;
 
-    return size > 0 ? size : 0;
+    return size > 0 ? size - 1 : 0;
 }
 
 int anchor_before_cursor(void)
@@ -148,6 +177,151 @@ pos get_editor_selection_end(void)
     }
 
     return (pos){ E.vx, E.vy };
+}
+
+void editor_move_to_next_word()
+{
+    bool skipped_line = false;
+
+    if(E.cx == E.row[E.cy].size - 1 && E.cy < E.numrows - 1)
+    {
+        skipped_line = true;
+        E.cx = 0;
+        E.cy += 1;
+    }
+
+    for(int i = E.cx; i < E.row[E.cy].size; i++)
+    {
+        if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
+        {
+            E.cx = fmin(i, get_max_cx());
+            break;
+        }
+
+        if(E.row[E.cy].chars[E.cx] != ' ' && E.row[E.cy].chars[i] == ' ')
+        {
+            while(E.row[E.cy].chars[i] == ' ' && i < E.row[E.cy].size)
+            {
+                i += 1;
+            }
+
+            E.cx = fmin(i, get_max_cx());
+            break;
+        }
+
+        if(skipped_line == false && i == E.row[E.cy].size - 1)
+        {
+            E.cx = fmin(E.row[E.cy].size, get_max_cx());
+            break;
+        }
+    }
+}
+
+void editor_move_to_next_word_end()
+{
+    if(E.cx == E.row[E.cy].size - 1 && E.cy < E.numrows - 1)
+    {
+        E.cx = 0;
+        E.cy += 1;
+    }
+
+    for(int i = E.cx; i < E.row[E.cy].size; i++)
+    {
+        if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
+        {
+            i += 1;
+            while(E.row[E.cy].chars[i] != ' ' && i < E.row[E.cy].size)
+            {
+                i += 1;
+            }
+
+            E.cx = fmin(i - 1, get_max_cx());
+            break;
+        }
+
+        if(E.row[E.cy].chars[E.cx] != ' ' && E.row[E.cy].chars[i] == ' ')
+        {
+            if(E.cx == i - 1)
+            {
+                while(E.row[E.cy].chars[i] == ' ' && i < E.row[E.cy].size)
+                {
+                    i += 1;
+                }
+
+                i += 1;
+
+                while(E.row[E.cy].chars[i] != ' ' && i < E.row[E.cy].size)
+                {
+                    i += 1;
+                }
+
+                E.cx = fmin(i - 1, get_max_cx());
+            }
+            else
+            {
+                E.cx = fmin(i - 1, get_max_cx());
+            }
+
+            break;
+        }
+
+        if(i == E.row[E.cy].size - 1)
+        {
+            E.cx = fmin(E.row[E.cy].size, get_max_cx());
+            break;
+        }
+    }
+}
+
+void editor_move_to_prev_word()
+{
+    if(E.cx == 0 && E.cy > 0)
+    {
+        E.cy -= 1;
+        E.cx = get_max_cx();
+        return;
+    }
+
+    for(int i = E.cx; i > 0; i--)
+    {
+        if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
+        {
+            E.cx = fmin(i, get_max_cx());
+            break;
+        }
+
+        if(E.row[E.cy].chars[E.cx] != ' ' && E.row[E.cy].chars[i] == ' ')
+        {
+            while(E.row[E.cy].chars[i] == ' ' && i > 0)
+            {
+                i -= 1;
+            }
+
+            if(i == 0 && E.cy > 0)
+            {
+                E.cy -= 1;
+                E.cx = get_max_cx();
+            }
+            else
+            {
+                E.cx = i;
+            }
+
+            break;
+        }
+
+        if(i == 1 && E.cy > 1)
+        {
+            E.cy -= 1;
+            E.cx = get_max_cx();
+            break;
+        }
+
+        if(i == 1 && E.cy == 0)
+        {
+            E.cx = 0;
+        }
+    }
 }
 
 void editor_move_cursor(const char key)
@@ -269,6 +443,10 @@ void handle_key_press()
             case 'i':
                 E.mode = 1;
                 break;
+            case 'a':
+                E.mode = 1;
+                E.cx += 1;
+                break;
             case 'v':
                 E.mode = 2;
                 E.vx = E.cx;
@@ -287,75 +465,20 @@ void handle_key_press()
 
                 break;
             case 'w':
-                if(E.cx == E.row[E.cy].size && E.cy < E.numrows - 1)
-                {
-                    E.cx = 0;
-                    E.cy += 1;
-                    break;
-                }
+                editor_move_to_next_word();
 
-                for(int i = E.cx; i < E.row[E.cy].size; i++)
-                {
-                    if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
-                    {
-                        E.cx = i;
-                        break;
-                    }
-
-                    if(E.row[E.cy].chars[E.cx] != ' ' && E.row[E.cy].chars[i] == ' ')
-                    {
-                       E.cx = i + 1;
-                       break;
-                    }
-
-                    if(i == E.row[E.cy].size - 1)
-                    {
-                        E.cx = E.row[E.cy].size;
-                    }
-                }
+                break;
+            case 'e':
+                editor_move_to_next_word_end();
 
                 break;
             case 'b':
-                if(E.cx == 0 && E.cy > 0)
-                {
-                    E.cy -= 1;
-                    E.cx = E.row[E.cy].size;
-                    break;
-                }
+                editor_move_to_prev_word();
 
-                for(int i = E.cx; i > 0; i--)
-                {
-                    if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ')
-                    {
-                        E.cx = i;
-                        break;
-                    }
-
-                    if(E.row[E.cy].chars[E.cx] != ' ' && E.row[E.cy].chars[i] == ' ')
-                    {
-                       E.cx = i - 1;
-                       break;
-                    }
-
-                    if(i == 1)
-                    {
-                        E.cx = 0;
-                    }
-                }
                 break;
             case 'o':
             {
-                int at = E.cy + 1;
-
-                E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
-                memmove(&E.row[at + 1], &E.row[at], sizeof(erow) * (E.numrows - at));
-
-                E.row[at].size = 0;
-                E.row[at].chars = malloc(1);
-                E.row[at].chars[0] = '\0';
-                E.numrows += 1;
-                E.cy += 1;
-                E.cx = 0;
+                editor_add_line_below();
                 E.mode = 1;
 
                 break;
@@ -372,6 +495,7 @@ void handle_key_press()
             // <esc>
             case 27:
                 E.mode = 0;
+                E.cx = get_max_cx();
                 break;
             default:
                 if(isprint((unsigned char)c))
@@ -397,10 +521,16 @@ void handle_key_press()
             case 'k':
             case 'l':
                 editor_move_cursor(c);
-
-                fprintf(stderr, "Insert %c\n", c);
-
-                // fprintf(stderr, "%d,%d : %d,%d", E.vx, E.vy, E.cx, E.cy);
+                break;
+            case 'w':
+                editor_move_to_next_word();
+                break;
+            case 'e':
+                editor_move_to_next_word_end();
+                break;
+            case 'b':
+                editor_move_to_prev_word();
+                break;
         }
     }
 }
@@ -432,13 +562,15 @@ void editor_append_row(char *s, size_t len)
     memcpy(E.row[at].chars, s, len);
     E.row[at].chars[len] = '\0';
 
-    fprintf(stderr, "editor_append_row %s of length %d\n", E.row[at].chars, E.row[at].size);
+    // fprintf(stderr, "editor_append_row %s of length %d\n", E.row[at].chars, E.row[at].size);
 
     E.numrows++;
 }
 
 void editor_open(char *filename)
 {
+    E.is_new_file = false;
+
     FILE *fp = fopen(filename, "r");
     if(!fp)
     {
@@ -512,8 +644,7 @@ void editor_draw_rows(struct abuf *ab)
         int filerow = y + E.rowoff;
         if(filerow >= E.numrows)
         {
-            fprintf(stderr, "ej ejej %d\n", E.numrows);
-            if(E.numrows == 0 && y == E.screenrows / 3)
+            if(E.is_new_file == true && y == E.screenrows / 3)
             {
                char welcome[80];
                int welcome_len = snprintf(welcome, sizeof(welcome), "Editor -- version %s", VERSION);
@@ -644,6 +775,7 @@ void init_editor()
     E.rowoff = 0;
     E.numrows = 0;
     E.mode = 0;
+    E.is_new_file = true;
     E.cmd = calloc(1, 1);
     E.cmd_info = "";
     E.row = NULL;
@@ -687,11 +819,10 @@ int main(int argc, char *argv[])
     {
         editor_open(file_path);
     }
-    // TODO: fix in no file mode
-    // else
-    // {
-    //     editor_append_row("", 0);
-    // }
+    else
+    {
+        editor_append_row("~", 0);
+    }
 
     while(1)
     {
