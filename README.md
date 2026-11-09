@@ -30,7 +30,7 @@ Order doesn't matter.
 ## Keymap
 | key     | layers         | description                                                |   
 | ------- | -------        | -------                                                    | 
-| <esc>   | VISUAL | move left                                                  |
+| \<esc>  | VISUAL         | move left                                                  |
 | h       | NORMAL, VISUAL | move left                                                  |
 | j       | NORMAL, VISUAL | move down                                                  |
 | k       | NORMAL, VISUAL | move up                                                    |
