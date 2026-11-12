@@ -29,27 +29,27 @@ typedef double f64;
 
 typedef struct {
     char *b;
-    int len;
+    u32 len;
 } abuf;
 
 typedef struct {
-    int x, y;
+    u32 x, y;
 } pos;
 
 typedef struct {
-    int size;
+    u32 size;
     char *chars;
 } erow;
 
 struct editor_config
 {
-    int cx, cy;
-    int vx, vy;
-    int rowoff;
-    int screenrows, screencols;
-    int numrows;
+    u32 cx, cy;
+    u32 vx, vy;
+    u32 rowoff;
+    u32 screenrows, screencols;
+    u32 numrows;
     erow *row;
-    int mode;
+    i8 mode;
     bool is_new_file;
     char *cmd;
     char *cmd_info;
@@ -72,9 +72,9 @@ void mark_file_old();
 void editor_insert_char(const char c);
 void editor_add_line_below();
 
-int get_max_cx();
+u32 get_max_cx();
 
-int is_anchor_before_cursor(void);
+u32 is_anchor_before_cursor(void);
 
 pos get_editor_selection_start(void);
 pos get_editor_selection_end(void);
@@ -91,9 +91,9 @@ void editor_append_row(char *s, size_t len);
 
 void editor_open(char *filename);
 
-int get_window_size(int *rows, int *cols);
+u32 get_window_size(u32 *rows, u32 *cols);
 
-void ab_append(abuf *ab, const char *s, int len);
+void ab_append(abuf *ab, const char *s, u32 len);
 void ab_free(abuf *ab);
 
 void editor_scroll();
@@ -110,7 +110,7 @@ int main(int argc, char *argv[]) {
     bool debug = 0;
     char *file_path = NULL;
 
-    for(int i = 0; i < argc; i++) {
+    for(u32 i = 0; i < argc; i++) {
         if(strcmp(argv[i], "--debug") == 0) {
             debug = 1;
         }
@@ -184,7 +184,7 @@ void enable_raw_mode() {
 }
 
 char read_key() {
-    int nread;
+    long nread;
     char c;
 
     while((nread = read(STDIN_FILENO, &c, 1)) != 1) {
@@ -221,7 +221,7 @@ void editor_insert_char(const char c) {
 void editor_add_line_below() {
     mark_file_old();
 
-    int at = E.cy + 1;
+    u32 at = E.cy + 1;
 
     E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
     memmove(&E.row[at + 1], &E.row[at], sizeof(erow) * (E.numrows - at));
@@ -234,13 +234,13 @@ void editor_add_line_below() {
     E.cx = 0;
 }
 
-int get_max_cx() {
-    int size = E.row[E.cy].size;
+u32 get_max_cx() {
+    u32 size = E.row[E.cy].size;
 
     return size > 0 ? size - 1 : 0;
 }
 
-int is_anchor_before_cursor() {
+u32 is_anchor_before_cursor() {
     return E.vy < E.cy || (E.vy == E.cy && E.vx < E.cx);
 }
 
@@ -269,7 +269,7 @@ void editor_move_to_next_word() {
         E.cy += 1;
     }
 
-    for(int i = E.cx; i < E.row[E.cy].size; i++) {
+    for(u32 i = E.cx; i < E.row[E.cy].size; i++) {
         if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ') {
             E.cx = fmin(i, get_max_cx());
             break;
@@ -297,7 +297,7 @@ void editor_move_to_next_word_end() {
         E.cy += 1;
     }
 
-    for(int i = E.cx; i < E.row[E.cy].size; i++) {
+    for(u32 i = E.cx; i < E.row[E.cy].size; i++) {
         if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ') {
             i += 1;
             while(E.row[E.cy].chars[i] != ' ' && i < E.row[E.cy].size) {
@@ -342,7 +342,7 @@ void editor_move_to_prev_word() {
         return;
     }
 
-    for(int i = E.cx; i > 0; i--) {
+    for(u32 i = E.cx; i > 0; i--) {
         if(E.row[E.cy].chars[E.cx] == ' ' && E.row[E.cy].chars[i] != ' ') {
             E.cx = fmin(i, get_max_cx());
             break;
@@ -449,7 +449,7 @@ void handle_key_press() {
                 break;
             default:
                 if(isprint((unsigned char)c)) {
-                    int len = strlen(E.cmd);
+                    u32 len = strlen(E.cmd);
                     E.cmd = realloc(E.cmd, len + 2);
                     E.cmd[len] = c;
                     E.cmd[len + 1] = '\0';
@@ -561,7 +561,7 @@ void handle_key_press() {
 void editor_append_row(char *s, size_t len) {
     E.row = realloc(E.row, sizeof(erow) * (E.numrows + 1));
 
-    int at = E.numrows;
+    u32 at = E.numrows;
     E.row[at].size = len;
     E.row[at].chars = malloc(len + 1);
     memcpy(E.row[at].chars, s, len);
@@ -593,7 +593,7 @@ void editor_open(char *filename) {
     fclose(fp);
 }
 
-int get_window_size(int *rows, int *cols) {
+u32 get_window_size(u32 *rows, u32 *cols) {
     struct winsize ws;
 
     if(ioctl(STDOUT_FILENO, TIOCGWINSZ, &ws) == -1 || ws.ws_col == 0) {
@@ -606,7 +606,7 @@ int get_window_size(int *rows, int *cols) {
     }
 }
 
-void ab_append(abuf *ab, const char *s, int len) {
+void ab_append(abuf *ab, const char *s, u32 len) {
     char *new = realloc(ab->b, ab->len + len);
 
     if(new == NULL) {
@@ -632,18 +632,18 @@ void editor_scroll() {
 }
 
 void editor_draw_rows(abuf *ab) {
-    for (int y = 0; y < E.screenrows; y++) {
-        int filerow = y + E.rowoff;
+    for (u32 y = 0; y < E.screenrows; y++) {
+        u32 filerow = y + E.rowoff;
         if(filerow >= E.numrows) {
             if(E.is_new_file == true && y == E.screenrows / 3) {
                char welcome[80];
-               int welcome_len = snprintf(welcome, sizeof(welcome), "Editor -- version %s", VERSION);
+               u32 welcome_len = snprintf(welcome, sizeof(welcome), "Editor -- version %s", VERSION);
 
                if(welcome_len > E.screencols) {
                    welcome_len = E.screencols;
                }
 
-               int padding = (E.screencols - welcome_len) / 2;
+               u32 padding = (E.screencols - welcome_len) / 2;
 
                if(padding) {
                   ab_append(ab, "~", 1);
@@ -663,7 +663,7 @@ void editor_draw_rows(abuf *ab) {
             pos e = get_editor_selection_end();
 
             erow *row = &E.row[filerow];
-            int len = row->size;
+            u32 len = row->size;
 
             if(len > E.screencols) {
                 len = E.screencols;
@@ -672,8 +672,8 @@ void editor_draw_rows(abuf *ab) {
             if(E.mode != 2 || filerow < s.y || filerow > e.y) {
                 ab_append(ab, row->chars, len);
             } else {
-                int from = (filerow == s.y) ? s.x : 0;
-                int to   = (filerow == e.y) ? e.x + 1 : len;
+                u32 from = (filerow == s.y) ? s.x : 0;
+                u32 to   = (filerow == e.y) ? e.x + 1 : len;
 
                 if(from > len) from = len;
                 if(to > len)   to = len;
