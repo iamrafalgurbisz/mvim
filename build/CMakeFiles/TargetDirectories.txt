@@ -1,0 +1,3 @@
+/home/rafal/Projects/mvim/build/CMakeFiles/mvim.dir
+/home/rafal/Projects/mvim/build/CMakeFiles/edit_cache.dir
+/home/rafal/Projects/mvim/build/CMakeFiles/rebuild_cache.dir

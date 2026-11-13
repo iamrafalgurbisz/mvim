@@ -1,0 +1,7 @@
+{
+	"InstallScripts" : 
+	[
+		"/home/rafal/Projects/mvim/build/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

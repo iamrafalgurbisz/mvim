@@ -7,7 +7,7 @@ Keep in mind that the program was only tested and written for Ubuntu 26.04
 git clone https://github.com/iamrafalgurbisz/mvim
 cd mvim
 
-clang main.c && ./a.out --file text.txt --debug
+cmake -S . -B build && ./build/mvim --file text.txt
 ```
 
 # Arguments
@@ -47,3 +47,4 @@ Order doesn't matter.
 | cmd     | description                     |   
 | ------- | -------                         | 
 | :w      | saves file; not implemented yet |
+| :q      | quits program                   |

@@ -1,3 +1,4 @@
+#include <assert.h>
 #include <ctype.h>
 #include <math.h>
 #include <stdio.h>
@@ -11,25 +12,20 @@
 #include <termios.h>
 #include <stdint.h>
 
+#include "utils/types.h"
+#include "memory/mem_arena.h"
+
 #define VERSION "0.0.1"
-#define ABUF_INIT {NULL, 0}
-
-typedef int8_t i8;
-typedef int16_t i16;
-typedef int32_t i32;
-typedef int64_t i64;
-
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
-
-typedef float f32;
-typedef double f64;
+#define ABUF_INIT {     \
+    .b = NULL,          \
+    .len = 0,           \
+    .arena = NULL,      \
+}
 
 typedef struct {
     char *b;
     u32 len;
+    mem_arena *arena;
 } abuf;
 
 typedef struct {
@@ -102,7 +98,7 @@ void editor_draw_rows(abuf *ab);
 
 void editor_draw_command_line(abuf *ab);
 
-void editor_clear_screen();
+void editor_clear_screen(mem_arena *arena);
 
 void init_editor();
 
@@ -126,6 +122,7 @@ int main(int argc, char *argv[]) {
     }
 
     enable_raw_mode();
+
     init_editor();
 
     if(file_path != NULL) {
@@ -134,10 +131,14 @@ int main(int argc, char *argv[]) {
         editor_append_row("~", 0);
     }
 
+    mem_arena *arena = create_arena(MiB(1), 1);
+
     while(1) {
-        editor_clear_screen();
+        editor_clear_screen(arena);
         handle_key_press();
     }
+
+    arena_destroy(arena);
 
     return 0;
 }
@@ -439,6 +440,10 @@ void handle_key_press() {
                     E.cmd = realloc(E.cmd, 1);
                     E.cmd[0] = '\0';
                     E.mode = 0;
+                } else if(strcmp(E.cmd, "q") == 0) {
+                    write(STDOUT_FILENO, "\x1b[2J", 4);
+                    write(STDOUT_FILENO, "\x1b[H", 3);
+                    exit(0);
                 } else {
                     E.cmd_info = "INVALID COMMAND";
 
@@ -607,19 +612,23 @@ u32 get_window_size(u32 *rows, u32 *cols) {
 }
 
 void ab_append(abuf *ab, const char *s, u32 len) {
-    char *new = realloc(ab->b, ab->len + len);
+    char *new = arena_push(ab->arena, len);
+    // char *new = realloc(ab->b, ab->len + len);
 
     if(new == NULL) {
         return;
     }
 
-    memcpy(&new[ab->len], s, len);
-    ab->b = new;
+    if(ab->b == NULL) {
+        ab->b = new;
+    }
+
+    memcpy(new, s, len);
     ab->len += len;
 }
 
 void ab_free(abuf *ab) {
-    free(ab->b);
+    arena_clear(ab->arena);
 }
 
 void editor_scroll() {
@@ -719,10 +728,11 @@ void editor_draw_command_line(abuf *ab) {
     ab_append(ab, "\x1b[K", 3);
 }
 
-void editor_clear_screen() {
+void editor_clear_screen(mem_arena *arena) {
     editor_scroll();
 
     abuf ab = ABUF_INIT;
+    ab.arena = arena;
 
     ab_append(&ab, "\x1b[?25l", 6);
     ab_append(&ab, "\x1b[H", 3);
@@ -755,5 +765,5 @@ void init_editor() {
         die("get_window_size");
     }
 
-    E.screenrows -= 1;
+    E.screenrows -= 5;
 }

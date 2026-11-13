@@ -1,0 +1,1 @@
+/usr/bin/cc -Wl,--dependency-file=CMakeFiles/mvim.dir/link.d CMakeFiles/mvim.dir/src/main.c.o CMakeFiles/mvim.dir/src/memory/mem_arena.c.o -o mvim  -lm
